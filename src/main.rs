@@ -1,23 +1,22 @@
 fn main() {
-    let mut img = Image::new(50, 50, false);
-    let a = img.get_height();
-    let b = img.get_width();
-    println!("{}, {}", a, b);
+    let mut img = Image::new(10, 10, false);
     img.draw_rectangle(1, 1, 5, 3, true);
     img.draw_rectangle(1, 5, 7, 4, true);
     img.draw_rectangle(7, 1, 2, 2, true);
-    img.draw_rectangle(10, 0, 40, 48, true);
     img.flip_pixel(3, 4);
     img.invert();
     img.flip_pixel(8, 5);
     img.flip_pixel(9, 5);
     println!("--BEFORE--");
-    img.print();
-    println!("--AFTER--");
-    img.flood_fill(3, 3, true);
-    img.print();
-    img.clear(true);
-    img.print();
+    img.print(true);
+    img.resize(5, 5, false);
+    img.print(true);
+    let a = img.get_height();
+    let b = img.get_width();
+    println!("{}, {}", a, b);
+
+    let mut cli = Cli::new("ipcli> ".to_owned());
+    // cli.start();
 }
 
 struct Image {
@@ -43,6 +42,54 @@ impl Image {
     }
     pub fn get_height(&self) -> usize {
         self.grid.len()
+    }
+    pub fn resize(&mut self, w: i32, h: i32, color: bool) {
+        match w.cmp(&(self.get_width() as i32)) {
+            std::cmp::Ordering::Greater => {
+                // Add columns
+                let width = self.get_width();
+                let height = self.get_height();
+                for i in 0..height {
+                    println!("{}", i);
+                    for _ in 0..(w - width as i32) {
+                        self.grid[i].push(color);
+                    }
+                }
+            }
+            std::cmp::Ordering::Less => {
+                // Remove columns
+                let width = self.get_width();
+                let height = self.get_height();
+                for i in 0..height {
+                    for _ in 0..(width as i32 - w) {
+                        self.grid[i].pop();
+                    }
+                }
+            }
+            std::cmp::Ordering::Equal => {}
+        }
+        match h.cmp(&(self.get_height() as i32)) {
+            std::cmp::Ordering::Greater => {
+                // Add rows
+                let width = self.get_width();
+                let height = self.get_height();
+                for i in 0..(h - height as i32) {
+                    self.grid.push(Vec::new());
+                    for _ in 0..width {
+                        self.grid[height + i as usize].push(color);
+                    }
+                }
+            }
+            std::cmp::Ordering::Less => {
+                // Remove rows
+                let width = self.get_width();
+                let height = self.get_height();
+                for _ in 0..(height as i32 - h) {
+                    self.grid.pop();
+                }
+            }
+            std::cmp::Ordering::Equal => {}
+        }
     }
     pub fn write_pixel(&mut self, x: i32, y: i32, color: bool) {
         self.grid[y as usize][x as usize] = color;
@@ -98,9 +145,30 @@ impl Image {
             }
         }
     }
-    pub fn get_human_readable(&self, fill_color: &str, background_color: &str) -> String {
+    pub fn get_human_readable(
+        &self,
+        fill_color: &str,
+        background_color: &str,
+        frame: bool,
+    ) -> String {
+        let mut frame_vertical = String::new();
+        let mut frame_horizontal = String::new();
+        if frame {
+            frame_vertical = "|".to_owned();
+            frame_horizontal += "+";
+            for i in 0..self.get_width() {
+                frame_horizontal += "-";
+            }
+            frame_horizontal += "+";
+        } else {
+            frame_vertical = "".to_owned();
+            frame_horizontal = "".to_owned();
+        }
         let mut human_readable = String::new();
+        human_readable += &frame_horizontal;
+        human_readable += "\n";
         for line in &self.grid {
+            human_readable += &frame_vertical;
             for cell in line {
                 if cell == &true {
                     human_readable += fill_color;
@@ -108,12 +176,14 @@ impl Image {
                     human_readable += background_color;
                 }
             }
+            human_readable += &frame_vertical;
             human_readable += "\n";
         }
+        human_readable += &frame_horizontal;
         human_readable
     }
-    pub fn print(&self) {
-        println!("{}", self.get_human_readable("█ ", "  "));
+    pub fn print(&self, frame: bool) {
+        println!("{}", self.get_human_readable("█", " ", frame));
     }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
         for i in x..(x + w) {
@@ -124,6 +194,21 @@ impl Image {
     }
 }
 
-struct CLI {
-    prompt: str,
+struct Cli {
+    prompt: String,
+}
+
+impl Cli {
+    pub fn new(prompt: String) -> Cli {
+        Cli { prompt }
+    }
+    pub fn start(&mut self) {
+        let mut input = String::new();
+        while input != *"quit" {
+            print!("{}", self.prompt);
+            std::io::stdin()
+                .read_line(&mut input)
+                .expect("Failed to read line");
+        }
+    }
 }
