@@ -1,22 +1,7 @@
 fn main() {
     let mut img = Image::new(10, 10, false);
-    img.draw_rectangle(1, 1, 5, 3, true);
-    img.draw_rectangle(1, 5, 7, 4, true);
-    img.draw_rectangle(7, 1, 2, 2, true);
-    img.flip_pixel(3, 4);
-    img.invert();
-    img.flip_pixel(8, 5);
-    img.flip_pixel(9, 5);
-    println!("--BEFORE--");
-    img.print(true);
-    img.resize(5, 5, false);
-    img.print(true);
-    let a = img.get_height();
-    let b = img.get_width();
-    println!("{}, {}", a, b);
-
-    let mut cli = Cli::new("ipcli> ".to_owned());
-    // cli.start();
+    let mut cli = Cli::new("ipcli> ".to_owned(), &mut img);
+    cli.start();
 }
 
 struct Image {
@@ -37,10 +22,10 @@ impl Image {
         }
         Image { grid }
     }
-    pub fn get_width(&self) -> usize {
+    fn get_width(&self) -> usize {
         self.grid[0].len()
     }
-    pub fn get_height(&self) -> usize {
+    fn get_height(&self) -> usize {
         self.grid.len()
     }
     pub fn resize(&mut self, w: i32, h: i32, color: bool) {
@@ -145,18 +130,13 @@ impl Image {
             }
         }
     }
-    pub fn get_human_readable(
-        &self,
-        fill_color: &str,
-        background_color: &str,
-        frame: bool,
-    ) -> String {
+    fn get_human_readable(&self, fill_color: &str, background_color: &str, frame: bool) -> String {
         let mut frame_vertical = String::new();
         let mut frame_horizontal = String::new();
         if frame {
             frame_vertical = "|".to_owned();
             frame_horizontal += "+";
-            for i in 0..self.get_width() {
+            for _ in 0..2 * self.get_width() {
                 frame_horizontal += "-";
             }
             frame_horizontal += "+";
@@ -183,7 +163,7 @@ impl Image {
         human_readable
     }
     pub fn print(&self, frame: bool) {
-        println!("{}", self.get_human_readable("█", " ", frame));
+        println!("{}", self.get_human_readable("██", "  ", frame));
     }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
         for i in x..(x + w) {
@@ -194,21 +174,55 @@ impl Image {
     }
 }
 
-struct Cli {
-    prompt: String,
+struct Cli<'cli_lifetime> {
+    prompt_string: String,
+    image: &'cli_lifetime mut Image,
 }
 
-impl Cli {
-    pub fn new(prompt: String) -> Cli {
-        Cli { prompt }
+impl<'cli_lifetime> Cli<'cli_lifetime> {
+    pub fn new(prompt_string: String, image: &mut Image) -> Cli {
+        Cli {
+            prompt_string,
+            image,
+        }
     }
     pub fn start(&mut self) {
-        let mut input = String::new();
-        while input != *"quit" {
-            print!("{}", self.prompt);
+        self.print_welcome_message();
+        let mut input: String;
+        let mut print_image = true;
+        loop {
+            if print_image {
+                self.image.print(true);
+            }
+            print_image = true;
+            print!("{}", self.prompt_string);
+            std::io::Write::flush(&mut std::io::stdout()).unwrap();
+            input = "".to_owned();
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read line");
+            let command = input.split(" ").collect::<Vec<&str>>();
+            let command_name = command[0].trim();
+            match command_name {
+                "help" => {
+                    self.print_help();
+                    print_image = false;
+                }
+                "write" | "w" => println!("d"),
+                "clear" | "c" => self.image.clear(true),
+                "quit" | "q" => return,
+                _ => {
+                    println!("Unrecognized option '{}'", command_name);
+                    print_image = false;
+                }
+            }
         }
+    }
+    fn print_welcome_message(&self) {
+        println!("Welcome to ipcli. Type 'help' for help.");
+    }
+    fn print_help(&self) {
+        println!("ipcli help:\n");
+        // TODO: Write help text
     }
 }
