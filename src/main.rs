@@ -28,7 +28,7 @@ impl Image {
     fn get_height(&self) -> usize {
         self.grid.len()
     }
-    pub fn resize(&mut self, w: i32, h: i32, color: bool) {
+    pub fn resize(&mut self, w: i32, h: i32) {
         match w.cmp(&(self.get_width() as i32)) {
             std::cmp::Ordering::Greater => {
                 // Add columns
@@ -37,7 +37,7 @@ impl Image {
                 for i in 0..height {
                     println!("{}", i);
                     for _ in 0..(w - width as i32) {
-                        self.grid[i].push(color);
+                        self.grid[i].push(false);
                     }
                 }
             }
@@ -61,13 +61,12 @@ impl Image {
                 for i in 0..(h - height as i32) {
                     self.grid.push(Vec::new());
                     for _ in 0..width {
-                        self.grid[height + i as usize].push(color);
+                        self.grid[height + i as usize].push(false);
                     }
                 }
             }
             std::cmp::Ordering::Less => {
                 // Remove rows
-                let width = self.get_width();
                 let height = self.get_height();
                 for _ in 0..(height as i32 - h) {
                     self.grid.pop();
@@ -131,24 +130,24 @@ impl Image {
         }
     }
     fn get_human_readable(&self, fill_color: &str, background_color: &str, frame: bool) -> String {
-        let mut frame_vertical = String::new();
+        let frame_vertical: &str;
         let mut frame_horizontal = String::new();
         if frame {
-            frame_vertical = "|".to_owned();
+            frame_vertical = "|";
             frame_horizontal += "+";
             for _ in 0..2 * self.get_width() {
                 frame_horizontal += "-";
             }
             frame_horizontal += "+";
         } else {
-            frame_vertical = "".to_owned();
+            frame_vertical = "";
             frame_horizontal = "".to_owned();
         }
         let mut human_readable = String::new();
         human_readable += &frame_horizontal;
         human_readable += "\n";
         for line in &self.grid {
-            human_readable += &frame_vertical;
+            human_readable += frame_vertical;
             for cell in line {
                 if cell == &true {
                     human_readable += fill_color;
@@ -156,7 +155,7 @@ impl Image {
                     human_readable += background_color;
                 }
             }
-            human_readable += &frame_vertical;
+            human_readable += frame_vertical;
             human_readable += "\n";
         }
         human_readable += &frame_horizontal;
@@ -201,7 +200,7 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read line");
-            input = input.replace(" t", " true");
+            input = input.replace(" t", " true"); // It's a hack, but it works
             input = input.replace(" f", " false");
             let command = input.split_whitespace().collect::<Vec<&str>>();
             let mut command_name = "";
@@ -227,6 +226,35 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "fill" | "f" => {
+                    const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
+                    if command.len() == 4 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let c: Result<bool, _> = command[3].parse();
+                        if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
+                            self.image.flood_fill(x, y, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
+                "resize" | "r" => {
+                    const USAGE_MESSAGE: &str = "[w: number] [h: number]";
+                    if command.len() == 3 {
+                        let w: Result<i32, _> = command[1].parse();
+                        let h: Result<i32, _> = command[2].parse();
+                        if let (Ok(w), Ok(h)) = (w, h) {
+                            self.image.resize(w, h);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "clear" | "c" => {
                     const USAGE_MESSAGE: &str = "[color: {t | f}]";
                     if command.len() == 2 {
@@ -240,6 +268,25 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_rectangle" | "dr" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
+                    if command.len() == 6 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let w: Result<i32, _> = command[3].parse();
+                        let h: Result<i32, _> = command[4].parse();
+                        let c: Result<bool, _> = command[5].parse();
+                        if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
+                            self.image.draw_rectangle(x, y, w, h, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
+                "invert" | "i" => self.image.invert(),
                 "quit" | "q" => return,
                 "" => print_image = false,
                 _ => {
@@ -250,7 +297,7 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
         }
     }
     fn print_welcome_message(&self) {
-        println!("Welcome to ipcli. Type 'help' for help.");
+        println!("Welcome to ipcli. Type 'help' for help. Type 'quit' to quit.");
     }
     fn print_help(&self, print_image: &mut bool) {
         println!("ipcli help:\n");
