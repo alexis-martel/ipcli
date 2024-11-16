@@ -201,18 +201,49 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read line");
-            let command = input.split(" ").collect::<Vec<&str>>();
-            let command_name = command[0].trim();
+            input = input.replace(" t", " true");
+            input = input.replace(" f", " false");
+            let command = input.split_whitespace().collect::<Vec<&str>>();
+            let mut command_name = "";
+            if !command.is_empty() {
+                command_name = command[0].trim();
+            }
             match command_name {
-                "help" => {
-                    self.print_help();
-                    print_image = false;
+                "help" | "h" => {
+                    self.print_help(&mut print_image);
                 }
-                "write" | "w" => println!("d"),
-                "clear" | "c" => self.image.clear(true),
+                "write" | "w" => {
+                    const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
+                    if command.len() == 4 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let c: Result<bool, _> = command[3].parse();
+                        if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
+                            self.image.write_pixel(x, y, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
+                "clear" | "c" => {
+                    const USAGE_MESSAGE: &str = "[color: {t | f}]";
+                    if command.len() == 2 {
+                        let c: Result<bool, _> = command[1].parse();
+                        if let Ok(c) = c {
+                            self.image.clear(c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "quit" | "q" => return,
+                "" => print_image = false,
                 _ => {
-                    println!("Unrecognized option '{}'", command_name);
+                    eprintln!("unrecognized option '{}'", command_name);
                     print_image = false;
                 }
             }
@@ -221,8 +252,17 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     fn print_welcome_message(&self) {
         println!("Welcome to ipcli. Type 'help' for help.");
     }
-    fn print_help(&self) {
+    fn print_help(&self, print_image: &mut bool) {
         println!("ipcli help:\n");
+        *print_image = false;
         // TODO: Write help text
+    }
+    fn print_command_usage(&self, command_name: &str, usage_message: &str, print_image: &mut bool) {
+        const RED: &str = "\x1b[31m";
+        const RESET: &str = "\x1b[0m";
+        eprintln!(
+            "{RED}{command_name}: invalid options\n{RESET}usage: {command_name} {usage_message}"
+        );
+        *print_image = false;
     }
 }
