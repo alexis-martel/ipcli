@@ -364,9 +364,34 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
         println!("Welcome to ipcli. Type 'help' for help. Type 'quit' to quit.");
     }
     fn print_help(&self, print_image: &mut bool) {
-        println!("ipcli help:\n");
+        const HELP_TEXT: &str = "Manipulate one-bit bitmap graphics from the command-line.
+
+\x1b[1mUSAGE\x1b[0m
+    ipcli [w: number] [h: number] [color: {t | f}]
+        Creates a new image of the specified dimensions and color.
+    
+\x1b[1mCOMMANDS\x1b[0m
+    help               | h: Prints this message;
+    write [x] [y] [c]  | w: Sets the pixel at (x, y) to color `c`;
+    fill [x] [y] [c]   | f: Flood fills from (x, y) with color `c`;
+    resize [w] [h]     | r: Resizes the image to `w` * `h`;
+    clear [c]          | c: Fills the image with color `c`;
+    invert             | i: Inverts the image;
+    quit               | q: Exits the program;
+    ---
+    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y).
+
+\x1b[1mABBREVIATIONS USED\x1b[0m
+    x: x-coordinate (must be positive or zero);
+    y: y-coordinate (must be positive or zero);
+    w: width        (must be positive or zero);
+    h: height       (must be positive or zero);
+    c: color        (must be either `t` or `f`);
+    ---
+    t: shorthand for `true`;
+    f: shorthand for `false`.";
+        println!("{}", HELP_TEXT);
         *print_image = false;
-        // TODO: Write help text
     }
     fn print_command_usage(&self, command_name: &str, usage_message: &str, print_image: &mut bool) {
         const RED: &str = "\x1b[31m";

@@ -1,8 +1,8 @@
 # IPCLI
 
-## Image Paint Command-Line Interface
+## Image Paint Command Line Interface
 
-An interactive command-line tool to manipulate one-bit bitmap graphics! Built in Rust.
+An interactive command line tool to manipulate one-bit bitmap graphics! Built in Rust.
 
 ## To Run
 
@@ -19,6 +19,42 @@ To get help, run IPCLI and type `help`, then press enter.
 > [!TIP]
 > Type `h` instead to get help faster!
 
+The output should be:
+
+<pre>
+Manipulate one-bit bitmap graphics from the command-line.
+
+<b>USAGE</b>
+    ipcli [w: number] [h: number] [color: {t | f}]
+        Creates a new image of the specified dimensions and color.
+    
+<b>COMMANDS</b>
+    help               | h: Prints this message;
+    write [x] [y] [c]  | w: Sets the pixel at (x, y) to color `c`;
+    fill [x] [y] [c]   | f: Flood fills from (x, y) with color `c`;
+    resize [w] [h]     | r: Resizes the image to `w` * `h`;
+    clear [c]          | c: Fills the image with color `c`;
+    invert             | i: Inverts the image;
+    quit               | q: Exits the program;
+    ---
+    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y).
+
+<b>ABBREVIATIONS USED</b>
+    x: x-coordinate (must be positive or zero);
+    y: y-coordinate (must be positive or zero);
+    w: width        (must be positive or zero);
+    h: height       (must be positive or zero);
+    c: color        (must be either `t` or `f`);
+    ---
+    t: shorthand for `true`;
+    f: shorthand for `false`.
+</pre>
+
 ## Demo
 
 TODO: Make a demo video.
+
+## Roadmap
+
+- [ ] Add a `draw_line` command;
+- [ ] Add a `draw_circle` command;
