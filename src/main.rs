@@ -1,5 +1,41 @@
 fn main() {
-    let mut img = Image::new(10, 10, false);
+    const RED: &str = "\x1b[31m";
+    const RESET: &str = "\x1b[0m";
+    let image_width: i32;
+    let image_height: i32;
+    let image_color: bool;
+    let args: Vec<_> = std::env::args().collect();
+    if args.len() == 4 {
+        let w: Result<i32, _> = args[1].parse();
+        let h: Result<i32, _> = args[2].parse();
+        let c: Result<bool, _> = args[3]
+            .to_lowercase()
+            .replace("t", "true")
+            .replace("f", "false")
+            .parse();
+        if let (Ok(w), Ok(h), Ok(c)) = (w, h, c) {
+            image_width = w;
+            image_height = h;
+            image_color = c;
+        } else {
+            eprintln!(
+                "{RED}{}: invalid options\n{RESET}usage: {} [w: number] [h: number] [color: {{t | f}}]",
+                args[0], args[0]
+            );
+            panic!();
+        }
+    } else if args.len() == 1 {
+        image_width = 10;
+        image_height = 10;
+        image_color = false;
+    } else {
+        eprintln!(
+            "{RED}{}: invalid options\n{RESET}usage: {} [w: number] [h: number] [color: {{t | f}}]",
+            args[0], args[0]
+        );
+        panic!();
+    }
+    let mut img = Image::new(image_width, image_height, image_color);
     let mut cli = Cli::new("ipcli> ".to_owned(), &mut img);
     cli.start();
 }
@@ -200,6 +236,7 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read line");
+            input = input.to_lowercase();
             input = input.replace(" t", " true"); // It's a hack, but it works
             input = input.replace(" f", " false");
             let command = input.split_whitespace().collect::<Vec<&str>>();
