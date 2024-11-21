@@ -65,6 +65,10 @@ impl Image {
         self.grid.len()
     }
     pub fn resize(&mut self, w: i32, h: i32) {
+        if w < 1 || h < 1 {
+            eprintln!("\x1b[33mwidth or height can't be smaller than 1\x1b[0m");
+            return;
+        }
         match w.cmp(&(self.get_width() as i32)) {
             std::cmp::Ordering::Greater => {
                 // Add columns
@@ -112,12 +116,23 @@ impl Image {
         }
     }
     pub fn write_pixel(&mut self, x: i32, y: i32, color: bool) {
+        if x < 0 || y < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
         self.grid[y as usize][x as usize] = color;
     }
     pub fn read_pixel(&self, x: i32, y: i32) -> bool {
+        if x < 0 || y < 0 {
+            panic!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+        }
         self.grid[y as usize][x as usize]
     }
     pub fn flip_pixel(&mut self, x: i32, y: i32) {
+        if x < 0 || y < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
         let a: bool = self.grid[y as usize][x as usize];
         self.grid[y as usize][x as usize] = !a;
     }
@@ -136,6 +151,10 @@ impl Image {
         }
     }
     pub fn flood_fill(&mut self, x: i32, y: i32, color: bool) {
+        if x < 0 || y < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
         if self.read_pixel(x, y) == color {
             // Fill colour is the same as existent colour
             return;
@@ -201,6 +220,14 @@ impl Image {
         println!("{}", self.get_human_readable("██", "  ", frame));
     }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
+        if x < 0 || y < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
+        if w < 1 || h < 1 {
+            eprintln!("\x1b[33mwidth or height can't be smaller than 1\x1b[0m");
+            return;
+        }
         for i in x..(x + w) {
             for j in y..(y + h) {
                 self.write_pixel(i, j, color);
