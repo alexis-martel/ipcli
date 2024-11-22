@@ -37,7 +37,8 @@ Manipulate one-bit bitmap graphics from the command-line.
     invert             | i: Inverts the image;
     quit               | q: Exits the program;
     ---
-    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y).
+    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
+    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2).
 
 <b>ABBREVIATIONS USED</b>
     x: x-coordinate (must be positive or zero);
@@ -56,5 +57,6 @@ TODO: Make a demo video.
 
 ## Roadmap
 
-- [ ] Add a `draw_line` command;
+- [x] Add a `draw_line` command;
 - [ ] Add a `draw_circle` command;
+- [ ] Add a `draw_curve` command;

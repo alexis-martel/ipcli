@@ -75,7 +75,6 @@ impl Image {
                 let width = self.get_width();
                 let height = self.get_height();
                 for i in 0..height {
-                    println!("{}", i);
                     for _ in 0..(w - width as i32) {
                         self.grid[i].push(false);
                     }
@@ -134,7 +133,7 @@ impl Image {
             return;
         }
         let a: bool = self.grid[y as usize][x as usize];
-        self.grid[y as usize][x as usize] = !a;
+        self.write_pixel(x, y, !a);
     }
     pub fn get_pixel_coordinates(&self) -> Vec<(i32, i32)> {
         let mut pixel_coordinates: Vec<(i32, i32)> = Vec::new();
@@ -219,6 +218,35 @@ impl Image {
     pub fn print(&self, frame: bool) {
         println!("{}", self.get_human_readable("██", "  ", frame));
     }
+    pub fn draw_line(&mut self, x1: i32, y1: i32, x2: i32, y2: i32, color: bool) {
+        // Compute equation
+        let dy = (y2 - y1) as f32;
+        let dx = (x2 - x1) as f32;
+        let plot_as_y_of_x = dx > dy;
+        let slope: f32 = if plot_as_y_of_x { dy / dx } else { dx / dy };
+        let initial_value = if plot_as_y_of_x {
+            y1 - (slope * x1 as f32) as i32
+        } else {
+            x1 - (slope * y1 as f32) as i32
+        };
+        // Plot line
+        let range_start = if plot_as_y_of_x { x1 } else { y1 };
+        let range_end = if plot_as_y_of_x { x2 } else { y2 };
+        let range = if range_end > range_start {
+            range_start..range_end + 1
+        } else {
+            range_end..range_start + 1
+        };
+        if plot_as_y_of_x {
+            for x in range {
+                self.write_pixel(x, (slope * x as f32 + initial_value as f32) as i32, color);
+            }
+        } else {
+            for y in range {
+                self.write_pixel((slope * y as f32 + initial_value as f32) as i32, y, color);
+            }
+        }
+    }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
         if x < 0 || y < 0 {
             eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
@@ -233,6 +261,15 @@ impl Image {
                 self.write_pixel(i, j, color);
             }
         }
+    }
+    pub fn draw_rectangle_outline(&mut self) {
+        todo!();
+    }
+    pub fn draw_circle(&mut self) {
+        todo!();
+    }
+    pub fn draw_circle_outline(&mut self) {
+        todo!();
     }
 }
 
@@ -350,6 +387,24 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_line" | "dl" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
+                    if command.len() == 6 {
+                        let x1: Result<i32, _> = command[1].parse();
+                        let y1: Result<i32, _> = command[2].parse();
+                        let x2: Result<i32, _> = command[3].parse();
+                        let y2: Result<i32, _> = command[4].parse();
+                        let c: Result<bool, _> = command[5].parse();
+                        if let (Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) = (x1, y1, x2, y2, c) {
+                            self.image.draw_line(x1, y1, x2, y2, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "invert" | "i" => self.image.invert(),
                 "quit" | "q" => return,
                 "" => print_image = false,
@@ -379,7 +434,8 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     invert             | i: Inverts the image;
     quit               | q: Exits the program;
     ---
-    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y).
+    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
+    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2).
 
 \x1b[1mABBREVIATIONS USED\x1b[0m
     x: x-coordinate (must be positive or zero);
