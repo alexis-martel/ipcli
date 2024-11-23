@@ -265,8 +265,25 @@ impl Image {
     pub fn draw_rectangle_outline(&mut self) {
         todo!();
     }
-    pub fn draw_circle(&mut self) {
-        todo!();
+    pub fn draw_circle(&mut self, xc: i32, yc: i32, radius: i32, color: bool) {
+        if xc < 0 || yc < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
+        // Check if the pixels in a square of side (2 * radius) are included in the circle
+        let start_x = xc - radius;
+        let end_x = xc + radius;
+        let start_y = yc - radius;
+        let end_y = yc + radius;
+        for x in start_x + 1..end_x {
+            for y in start_y + 1..end_y {
+                // Increment start_x | y by one to correct rounding error
+                if (x - xc).pow(2) as f32 + (y - yc).pow(2) as f32 <= radius.pow(2) as f32 {
+                    // In circle
+                    self.write_pixel(x, y, color);
+                }
+            }
+        }
     }
     pub fn draw_circle_outline(&mut self) {
         todo!();
@@ -405,6 +422,23 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_circle" | "dc" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x: number] [y: number] [radius: number] [color: {t | f}]";
+                    if command.len() == 5 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let r: Result<i32, _> = command[3].parse();
+                        let c: Result<bool, _> = command[4].parse();
+                        if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
+                            self.image.draw_circle(x, y, r, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "invert" | "i" => self.image.invert(),
                 "quit" | "q" => return,
                 "" => print_image = false,
@@ -435,13 +469,15 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     quit               | q: Exits the program;
     ---
     draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
-    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2).
+    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
+    draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y).
 
 \x1b[1mABBREVIATIONS USED\x1b[0m
     x: x-coordinate (must be positive or zero);
     y: y-coordinate (must be positive or zero);
     w: width        (must be positive or zero);
     h: height       (must be positive or zero);
+    r: radius       (must be positive or zero);
     c: color        (must be either `t` or `f`);
     ---
     t: shorthand for `true`;

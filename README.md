@@ -38,13 +38,15 @@ Manipulate one-bit bitmap graphics from the command-line.
     quit               | q: Exits the program;
     ---
     draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
-    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2).
+    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
+    draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y).
 
 <b>ABBREVIATIONS USED</b>
     x: x-coordinate (must be positive or zero);
     y: y-coordinate (must be positive or zero);
     w: width        (must be positive or zero);
     h: height       (must be positive or zero);
+    r: radius       (must be positive or zero);
     c: color        (must be either `t` or `f`);
     ---
     t: shorthand for `true`;
