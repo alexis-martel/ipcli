@@ -60,5 +60,5 @@ TODO: Make a demo video.
 ## Roadmap
 
 - [x] Add a `draw_line` command;
-- [ ] Add a `draw_circle` command;
+- [x] Add a `draw_circle` command;
 - [ ] Add a `draw_curve` command;
