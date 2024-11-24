@@ -262,8 +262,13 @@ impl Image {
             }
         }
     }
-    pub fn draw_rectangle_outline(&mut self) {
-        todo!();
+    pub fn draw_rectangle_outline(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
+        // Horizontal lines
+        self.draw_line(x, y, x + w, y, color);
+        self.draw_line(x, y + h, x + w, y + h, color);
+        // Vertical lines
+        self.draw_line(x, y, x, y + h, color);
+        self.draw_line(x + w, y, x + w, y + h, color);
     }
     pub fn draw_circle(&mut self, xc: i32, yc: i32, radius: i32, color: bool) {
         if xc < 0 || yc < 0 {
@@ -404,6 +409,24 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_rectangle_outline" | "dro" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
+                    if command.len() == 6 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let w: Result<i32, _> = command[3].parse();
+                        let h: Result<i32, _> = command[4].parse();
+                        let c: Result<bool, _> = command[5].parse();
+                        if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
+                            self.image.draw_rectangle_outline(x, y, w, h, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "draw_line" | "dl" => {
                     const USAGE_MESSAGE: &str =
                         "[x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
@@ -470,7 +493,9 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     ---
     draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
     draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
-    draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y).
+    draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y);
+    ---
+    draw_rectangle_outline [x] [y] [w] [h] [c] | dro : Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`.
 
 \x1b[1mABBREVIATIONS USED\x1b[0m
     x: x-coordinate (must be positive or zero);
