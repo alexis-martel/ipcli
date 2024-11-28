@@ -275,6 +275,10 @@ impl Image {
             eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
             return;
         }
+        if radius < 0 {
+            eprintln!("\x1b[33mradius can't be smaller than 0\x1b[0m");
+            return;
+        }
         // Check if the pixels in a square of side (2 * radius) are included in the circle
         let start_x = xc - radius;
         let end_x = xc + radius;
@@ -282,16 +286,45 @@ impl Image {
         let end_y = yc + radius;
         for x in start_x + 1..end_x {
             for y in start_y + 1..end_y {
-                // Increment start_x | y by one to correct rounding error
-                if (x - xc).pow(2) as f32 + (y - yc).pow(2) as f32 <= radius.pow(2) as f32 {
+                // Increment start_x&y by one to correct rounding error
+                if (x - xc).pow(2) + (y - yc).pow(2) <= radius.pow(2) {
                     // In circle
                     self.write_pixel(x, y, color);
                 }
             }
         }
     }
-    pub fn draw_circle_outline(&mut self) {
-        todo!();
+    pub fn draw_circle_outline(&mut self, xc: i32, yc: i32, radius: i32, color: bool) {
+        if xc < 0 || yc < 0 {
+            eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
+        if radius < 0 {
+            eprintln!("\x1b[33mradius can't be smaller than 0\x1b[0m");
+            return;
+        }
+        // Draw a circle outline using Jesko's method
+        let mut t1 = radius / 16;
+        let mut x = radius;
+        let mut y = 0;
+        let mut t2: i32;
+        while x >= y {
+            self.write_pixel(xc + x, yc + y, color);
+            self.write_pixel(xc - x, yc + y, color);
+            self.write_pixel(xc + x, yc - y, color);
+            self.write_pixel(xc - x, yc - y, color);
+            self.write_pixel(yc + y, xc + x, color);
+            self.write_pixel(yc + y, xc - x, color);
+            self.write_pixel(yc - y, xc + x, color);
+            self.write_pixel(yc - y, xc - x, color);
+            y += 1;
+            t1 += y;
+            t2 = t1 - x;
+            if t2 >= 0 {
+                t1 = t2;
+                x -= 1;
+            }
+        }
     }
 }
 
@@ -462,6 +495,23 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_circle_outline" | "dco" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x: number] [y: number] [radius: number] [color: {t | f}]";
+                    if command.len() == 5 {
+                        let x: Result<i32, _> = command[1].parse();
+                        let y: Result<i32, _> = command[2].parse();
+                        let r: Result<i32, _> = command[3].parse();
+                        let c: Result<bool, _> = command[4].parse();
+                        if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
+                            self.image.draw_circle_outline(x, y, r, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "invert" | "i" => self.image.invert(),
                 "quit" | "q" => return,
                 "" => print_image = false,
@@ -495,8 +545,9 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
     draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y);
     ---
-    draw_rectangle_outline [x] [y] [w] [h] [c] | dro : Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`.
-
+    draw_rectangle_outline [x] [y] [w] [h] [c] | dro : Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
+    draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x, y).
+    
 \x1b[1mABBREVIATIONS USED\x1b[0m
     x: x-coordinate (must be positive or zero);
     y: y-coordinate (must be positive or zero);
