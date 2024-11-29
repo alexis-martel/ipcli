@@ -247,6 +247,31 @@ impl Image {
             }
         }
     }
+    pub fn draw_curve(
+        &mut self,
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+        color: bool,
+    ) {
+        let x_coords = [x0, x1, x2];
+        let y_coords = [y0, y1, y2];
+        let start_x: i32 = x_coords.iter().min().unwrap().to_owned();
+        let end_x: i32 = x_coords.iter().max().unwrap().to_owned();
+        let start_y: i32 = y_coords.iter().min().unwrap().to_owned();
+        let end_y: i32 = y_coords.iter().max().unwrap().to_owned();
+        for x in start_x..end_x {
+            for y in start_y..end_y {
+                if c {
+                    self.write_pixel(x, y, color);
+                }
+            }
+        }
+        todo!();
+    }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
         if x < 0 || y < 0 {
             eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
@@ -545,7 +570,7 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
     draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y);
     ---
-    draw_rectangle_outline [x] [y] [w] [h] [c] | dro : Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
+    draw_rectangle_outline [x] [y] [w] [h] [c] | dro: Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
     draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x, y).
     
 \x1b[1mABBREVIATIONS USED\x1b[0m

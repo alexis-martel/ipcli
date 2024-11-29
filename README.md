@@ -41,7 +41,7 @@ Manipulate one-bit bitmap graphics from the command-line.
     draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
     draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y);
     ---
-    draw_rectangle_outline [x] [y] [w] [h] [c] | dro : Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
+    draw_rectangle_outline [x] [y] [w] [h] [c] | dro: Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
     draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x, y).
 
 <b>ABBREVIATIONS USED</b>
@@ -65,3 +65,4 @@ TODO: Make a demo video.
 - [x] Add a `draw_line` command;
 - [x] Add a `draw_circle` command;
 - [ ] Add a `draw_curve` command;
+- [ ] Add scripting support.
