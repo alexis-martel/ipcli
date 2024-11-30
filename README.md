@@ -65,5 +65,5 @@ TODO: Make a demo video.
 
 - [x] Add a `draw_line` command;
 - [x] Add a `draw_circle` command;
-- [ ] Add a `draw_curve` command;
+- [x] Add a `draw_curve` command;
 - [ ] Add scripting support.
