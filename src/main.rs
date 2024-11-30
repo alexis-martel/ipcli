@@ -247,6 +247,7 @@ impl Image {
             }
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_curve(
         &mut self,
         x0: i32,
@@ -265,12 +266,26 @@ impl Image {
         let end_y: i32 = y_coords.iter().max().unwrap().to_owned();
         for x in start_x..end_x {
             for y in start_y..end_y {
-                if c {
+                let mut is_on_curve = false;
+                // Sample several t values
+                for t in (0..=100).map(|x| x as f32 / 100.0) {
+                    let x_curve = (1.0 - t).powi(2) * x0 as f32
+                        + 2.0 * (1.0 - t) * t * x1 as f32
+                        + t.powi(2) * x2 as f32;
+                    let y_curve = (1.0 - t).powi(2) * y0 as f32
+                        + 2.0 * (1.0 - t) * t * y1 as f32
+                        + t.powi(2) * y2 as f32;
+                    // Check if the pixel is close to the curve point
+                    if (x_curve.round() as i32 == x) && (y_curve.round() as i32 == y) {
+                        is_on_curve = true;
+                        break;
+                    }
+                }
+                if is_on_curve {
                     self.write_pixel(x, y, color);
                 }
             }
         }
-        todo!();
     }
     pub fn draw_rectangle(&mut self, x: i32, y: i32, w: i32, h: i32, color: bool) {
         if x < 0 || y < 0 {
@@ -503,6 +518,28 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
                         self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
                     }
                 }
+                "draw_curve" | "db" => {
+                    const USAGE_MESSAGE: &str =
+                        "[x0: number] [y0: number] [x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
+                    if command.len() == 8 {
+                        let x0: Result<i32, _> = command[1].parse();
+                        let y0: Result<i32, _> = command[2].parse();
+                        let x1: Result<i32, _> = command[3].parse();
+                        let y1: Result<i32, _> = command[4].parse();
+                        let x2: Result<i32, _> = command[5].parse();
+                        let y2: Result<i32, _> = command[6].parse();
+                        let c: Result<bool, _> = command[7].parse();
+                        if let (Ok(x0), Ok(y0), Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) =
+                            (x0, y0, x1, y1, x2, y2, c)
+                        {
+                            self.image.draw_curve(x0, y0, x1, y1, x2, y2, c);
+                        } else {
+                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        }
+                    } else {
+                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                    }
+                }
                 "draw_circle" | "dc" => {
                     const USAGE_MESSAGE: &str =
                         "[x: number] [y: number] [radius: number] [color: {t | f}]";
@@ -566,9 +603,10 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     invert             | i: Inverts the image;
     quit               | q: Exits the program;
     ---
-    draw_rectangle [x] [y] [w] [h] [c] | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
-    draw_line [x1] [y1] [x2] [y2] [c]  | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
-    draw_circle [x] [y] [r] [c]        | dc: Draws a circle of radius `r` with centre (x, y);
+    draw_rectangle [x] [y] [w] [h] [c]           | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
+    draw_line [x1] [y1] [x2] [y2] [c]            | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
+    draw_curve [x0] [y0] [x1] [y1] [x2] [y2] [c] | db: Draws a quadratic Bézier curve with control points (x0, y0), (x1, y1), (x2, y2) with color `c`;
+    draw_circle [x] [y] [r] [c]                  | dc: Draws a circle of radius `r` with centre (x, y);
     ---
     draw_rectangle_outline [x] [y] [w] [h] [c] | dro: Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
     draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x, y).
