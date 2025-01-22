@@ -4,6 +4,7 @@ fn main() {
     let image_width: i32;
     let image_height: i32;
     let image_color: bool;
+    let mut run_script = false;
     let args: Vec<_> = std::env::args().collect();
     if args.len() == 4 {
         let w: Result<i32, _> = args[1].parse();
@@ -24,19 +25,27 @@ fn main() {
             );
             panic!();
         }
-    } else if args.len() == 1 {
+    } else if args.len() == 1 || (args.len() == 3 && args[1] == "-s") {
         image_width = 10;
         image_height = 10;
         image_color = false;
+        if args.len() == 3 && args[1] == "-s" {
+            run_script = true;
+        }
     } else {
         eprintln!(
-            "{RED}{}: invalid options\n{RESET}usage: {} [w: number] [h: number] [color: {{t | f}}]",
+            "{RED}{}: invalid options\n{RESET}usage: {} [w: number] [h: number] [color: {{t | f}}]\n",
             args[0], args[0]
         );
         panic!();
     }
     let mut img = Image::new(image_width, image_height, image_color);
     let mut cli = Cli::new("ipcli> ".to_owned(), &mut img);
+    if run_script {
+        let file_path = args[2].to_owned();
+        let file_contents = std::fs::read_to_string(file_path).expect("failed to read script");
+        cli.parse_script(file_contents);
+    }
     cli.start();
 }
 
@@ -117,6 +126,9 @@ impl Image {
     pub fn write_pixel(&mut self, x: i32, y: i32, color: bool) {
         if x < 0 || y < 0 {
             eprintln!("\x1b[33mcoordinates can't be smaller than 0\x1b[0m");
+            return;
+        }
+        if x >= self.grid[0].len() as i32 || y >= self.grid.len() as i32 {
             return;
         }
         self.grid[y as usize][x as usize] = color;
@@ -327,7 +339,7 @@ impl Image {
         for x in start_x + 1..end_x {
             for y in start_y + 1..end_y {
                 // Increment start_x&y by one to correct rounding error
-                if (x - xc).pow(2) + (y - yc).pow(2) <= radius.pow(2) {
+                if (x - xc).pow(2) + (y - yc).pow(2) < radius.pow(2) {
                     // In circle
                     self.write_pixel(x, y, color);
                 }
@@ -382,217 +394,266 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     }
     pub fn start(&mut self) {
         self.print_welcome_message();
+        let mut input_log: Vec<String> = vec![];
         let mut input: String;
         let mut print_image = true;
         loop {
             if print_image {
                 self.image.print(true);
             }
-            print_image = true;
+            let old_image = self.image.grid.to_owned(); // Make a copy of the current image
             print!("{}", self.prompt_string);
             std::io::Write::flush(&mut std::io::stdout()).unwrap();
             input = "".to_owned();
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read line");
-            input = input.to_lowercase();
-            input = input.replace(" t", " true"); // It's a hack, but it works
-            input = input.replace(" f", " false");
-            let command = input.split_whitespace().collect::<Vec<&str>>();
-            let mut command_name = "";
-            if !command.is_empty() {
-                command_name = command[0].trim();
+            self.parse_command(input, &mut input_log);
+            print_image = old_image != self.image.grid; // Check wether the image has changed
+        }
+    }
+    fn parse_command(&mut self, input: String, input_log: &mut Vec<String>) {
+        let original_input = input.to_owned();
+        let mut input = input;
+        input = input.to_lowercase();
+        input = input.replace(" t", " true"); // It's a hack, but it works
+        input = input.replace(" f", " false");
+        let command = input.split_whitespace().collect::<Vec<&str>>();
+        let mut command_name = "";
+        if !command.is_empty() {
+            command_name = command[0].trim();
+        }
+        let mut command_ok = true;
+        match command_name {
+            "help" | "h" => {
+                self.print_help();
+                command_ok = false;
             }
-            match command_name {
-                "help" | "h" => {
-                    self.print_help(&mut print_image);
+            "dump" | "d" => {
+                let input_log_copy = input_log.to_owned();
+                for command in input_log_copy {
+                    println!("{};", command.trim());
                 }
-                "write" | "w" => {
-                    const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
-                    if command.len() == 4 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let c: Result<bool, _> = command[3].parse();
-                        if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
-                            self.image.write_pixel(x, y, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+                command_ok = false;
+            }
+            "write" | "w" => {
+                const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
+                if command.len() == 4 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let c: Result<bool, _> = command[3].parse();
+                    if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
+                        self.image.write_pixel(x, y, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "fill" | "f" => {
-                    const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
-                    if command.len() == 4 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let c: Result<bool, _> = command[3].parse();
-                        if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
-                            self.image.flood_fill(x, y, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "fill" | "f" => {
+                const USAGE_MESSAGE: &str = "[x: number] [y: number] [color: {t | f}]";
+                if command.len() == 4 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let c: Result<bool, _> = command[3].parse();
+                    if let (Ok(x), Ok(y), Ok(c)) = (x, y, c) {
+                        self.image.flood_fill(x, y, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "resize" | "r" => {
-                    const USAGE_MESSAGE: &str = "[w: number] [h: number]";
-                    if command.len() == 3 {
-                        let w: Result<i32, _> = command[1].parse();
-                        let h: Result<i32, _> = command[2].parse();
-                        if let (Ok(w), Ok(h)) = (w, h) {
-                            self.image.resize(w, h);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "resize" | "r" => {
+                const USAGE_MESSAGE: &str = "[w: number] [h: number]";
+                if command.len() == 3 {
+                    let w: Result<i32, _> = command[1].parse();
+                    let h: Result<i32, _> = command[2].parse();
+                    if let (Ok(w), Ok(h)) = (w, h) {
+                        self.image.resize(w, h);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "clear" | "c" => {
-                    const USAGE_MESSAGE: &str = "[color: {t | f}]";
-                    if command.len() == 2 {
-                        let c: Result<bool, _> = command[1].parse();
-                        if let Ok(c) = c {
-                            self.image.clear(c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "clear" | "c" => {
+                const USAGE_MESSAGE: &str = "[color: {t | f}]";
+                if command.len() == 2 {
+                    let c: Result<bool, _> = command[1].parse();
+                    if let Ok(c) = c {
+                        self.image.clear(c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_rectangle" | "dr" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
-                    if command.len() == 6 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let w: Result<i32, _> = command[3].parse();
-                        let h: Result<i32, _> = command[4].parse();
-                        let c: Result<bool, _> = command[5].parse();
-                        if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
-                            self.image.draw_rectangle(x, y, w, h, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_rectangle" | "dr" => {
+                const USAGE_MESSAGE: &str =
+                    "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
+                if command.len() == 6 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let w: Result<i32, _> = command[3].parse();
+                    let h: Result<i32, _> = command[4].parse();
+                    let c: Result<bool, _> = command[5].parse();
+                    if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
+                        self.image.draw_rectangle(x, y, w, h, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_rectangle_outline" | "dro" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
-                    if command.len() == 6 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let w: Result<i32, _> = command[3].parse();
-                        let h: Result<i32, _> = command[4].parse();
-                        let c: Result<bool, _> = command[5].parse();
-                        if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
-                            self.image.draw_rectangle_outline(x, y, w, h, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_rectangle_outline" | "dro" => {
+                const USAGE_MESSAGE: &str =
+                    "[x: number] [y: number] [w: number] [h: number] [color: {t | f}]";
+                if command.len() == 6 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let w: Result<i32, _> = command[3].parse();
+                    let h: Result<i32, _> = command[4].parse();
+                    let c: Result<bool, _> = command[5].parse();
+                    if let (Ok(x), Ok(y), Ok(w), Ok(h), Ok(c)) = (x, y, w, h, c) {
+                        self.image.draw_rectangle_outline(x, y, w, h, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_line" | "dl" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
-                    if command.len() == 6 {
-                        let x1: Result<i32, _> = command[1].parse();
-                        let y1: Result<i32, _> = command[2].parse();
-                        let x2: Result<i32, _> = command[3].parse();
-                        let y2: Result<i32, _> = command[4].parse();
-                        let c: Result<bool, _> = command[5].parse();
-                        if let (Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) = (x1, y1, x2, y2, c) {
-                            self.image.draw_line(x1, y1, x2, y2, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_line" | "dl" => {
+                const USAGE_MESSAGE: &str =
+                    "[x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
+                if command.len() == 6 {
+                    let x1: Result<i32, _> = command[1].parse();
+                    let y1: Result<i32, _> = command[2].parse();
+                    let x2: Result<i32, _> = command[3].parse();
+                    let y2: Result<i32, _> = command[4].parse();
+                    let c: Result<bool, _> = command[5].parse();
+                    if let (Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) = (x1, y1, x2, y2, c) {
+                        self.image.draw_line(x1, y1, x2, y2, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_curve" | "db" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x0: number] [y0: number] [x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
-                    if command.len() == 8 {
-                        let x0: Result<i32, _> = command[1].parse();
-                        let y0: Result<i32, _> = command[2].parse();
-                        let x1: Result<i32, _> = command[3].parse();
-                        let y1: Result<i32, _> = command[4].parse();
-                        let x2: Result<i32, _> = command[5].parse();
-                        let y2: Result<i32, _> = command[6].parse();
-                        let c: Result<bool, _> = command[7].parse();
-                        if let (Ok(x0), Ok(y0), Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) =
-                            (x0, y0, x1, y1, x2, y2, c)
-                        {
-                            self.image.draw_curve(x0, y0, x1, y1, x2, y2, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_curve" | "db" => {
+                const USAGE_MESSAGE: &str =
+                    "[x0: number] [y0: number] [x1: number] [y1: number] [x2: number] [y2: number] [color: {t | f}]";
+                if command.len() == 8 {
+                    let x0: Result<i32, _> = command[1].parse();
+                    let y0: Result<i32, _> = command[2].parse();
+                    let x1: Result<i32, _> = command[3].parse();
+                    let y1: Result<i32, _> = command[4].parse();
+                    let x2: Result<i32, _> = command[5].parse();
+                    let y2: Result<i32, _> = command[6].parse();
+                    let c: Result<bool, _> = command[7].parse();
+                    if let (Ok(x0), Ok(y0), Ok(x1), Ok(y1), Ok(x2), Ok(y2), Ok(c)) =
+                        (x0, y0, x1, y1, x2, y2, c)
+                    {
+                        self.image.draw_curve(x0, y0, x1, y1, x2, y2, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_circle" | "dc" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x: number] [y: number] [radius: number] [color: {t | f}]";
-                    if command.len() == 5 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let r: Result<i32, _> = command[3].parse();
-                        let c: Result<bool, _> = command[4].parse();
-                        if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
-                            self.image.draw_circle(x, y, r, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_circle" | "dc" => {
+                const USAGE_MESSAGE: &str =
+                    "[x: number] [y: number] [radius: number] [color: {t | f}]";
+                if command.len() == 5 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let r: Result<i32, _> = command[3].parse();
+                    let c: Result<bool, _> = command[4].parse();
+                    if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
+                        self.image.draw_circle(x, y, r, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "draw_circle_outline" | "dco" => {
-                    const USAGE_MESSAGE: &str =
-                        "[x: number] [y: number] [radius: number] [color: {t | f}]";
-                    if command.len() == 5 {
-                        let x: Result<i32, _> = command[1].parse();
-                        let y: Result<i32, _> = command[2].parse();
-                        let r: Result<i32, _> = command[3].parse();
-                        let c: Result<bool, _> = command[4].parse();
-                        if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
-                            self.image.draw_circle_outline(x, y, r, c);
-                        } else {
-                            self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
-                        }
+            }
+            "draw_circle_outline" | "dco" => {
+                const USAGE_MESSAGE: &str =
+                    "[x: number] [y: number] [radius: number] [color: {t | f}]";
+                if command.len() == 5 {
+                    let x: Result<i32, _> = command[1].parse();
+                    let y: Result<i32, _> = command[2].parse();
+                    let r: Result<i32, _> = command[3].parse();
+                    let c: Result<bool, _> = command[4].parse();
+                    if let (Ok(x), Ok(y), Ok(r), Ok(c)) = (x, y, r, c) {
+                        self.image.draw_circle_outline(x, y, r, c);
                     } else {
-                        self.print_command_usage(command_name, USAGE_MESSAGE, &mut print_image);
+                        self.print_command_usage(command_name, USAGE_MESSAGE);
+                        command_ok = false;
                     }
+                } else {
+                    self.print_command_usage(command_name, USAGE_MESSAGE);
+                    command_ok = false;
                 }
-                "invert" | "i" => self.image.invert(),
-                "quit" | "q" => return,
-                "" => print_image = false,
-                _ => {
-                    eprintln!("unrecognized option '{}'", command_name);
-                    print_image = false;
-                }
+            }
+            "invert" | "i" => self.image.invert(),
+            "quit" | "q" => std::process::exit(0),
+            "" => command_ok = false,
+            _ => {
+                eprintln!("unrecognized command '{}'", command_name);
+                command_ok = false;
             }
         }
+        if command_ok {
+            input_log.push(original_input);
+        }
+    }
+    fn parse_script(&mut self, script_text: String) {
+        println!("Running script…");
+        for command in script_text.split(";") {
+            self.parse_command(command.to_owned(), &mut vec![]);
+        }
+        println!("Done running script");
     }
     fn print_welcome_message(&self) {
         println!("Welcome to ipcli. Type 'help' for help. Type 'quit' to quit.");
     }
-    fn print_help(&self, print_image: &mut bool) {
-        const HELP_TEXT: &str = "Manipulate one-bit bitmap graphics from the command-line.
+    fn print_help(&self) {
+        const HELP_TEXT: &str = "\x1b[1mIMAGE PAINT COMMAND LINE INTERFACE\x1b[0m
+    Manipulate one-bit bitmap graphics from the command-line.
 
 \x1b[1mUSAGE\x1b[0m
     ipcli [w: number] [h: number] [color: {t | f}]
         Creates a new image of the specified dimensions and color.
+    ipcli -s [path: file path]
+        Generates the image from the script at `path` and start the IPCLI.
     
 \x1b[1mCOMMANDS\x1b[0m
     help               | h: Prints this message;
@@ -605,13 +666,15 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     ---
     draw_rectangle [x] [y] [w] [h] [c]           | dr: Draws a `w` * `h` rectangle of color `c` at (x, y);
     draw_line [x1] [y1] [x2] [y2] [c]            | dl: Draws a line of color `c` from (x1, y1) to (x2, y2);
-    draw_curve [x0] [y0] [x1] [y1] [x2] [y2] [c] | db: Draws a quadratic Bézier curve with control points (x0, y0), (x1, y1), (x2, y2) with color `c`;
-    draw_circle [x] [y] [r] [c]                  | dc: Draws a circle of radius `r` with centre (x, y);
+    draw_curve [x0] [y0] [x1] [y1] [x2] [y2] [c] | db: Draws a quadratic Bézier curve with control points (x0, y0)(x1, y1), (x2, y2) with color `c`;
+    draw_circle [x] [y] [r] [c]                  | dc: Draws a circle of radius `r` with centre (x, y) with colo`c`;
     ---
-    draw_rectangle_outline [x] [y] [w] [h] [c] | dro: Draws the outline of a `w` * `h` rectangle at (x, y) with color `c`;
-    draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x, y).
-    
-\x1b[1mABBREVIATIONS USED\x1b[0m
+    draw_rectangle_outline [x] [y] [w] [h] [c] | dro: Draws the outline of a `w` * `h` rectangle at (x, y) witcolor `c`;
+    draw_circle_outline [x] [y] [r] [c]        | dco: Draws the outline of a circle of radius `r` with centre (x,  with color `c`;
+    ---
+    dump | d: Dumps all executed commands as a script to stdout.
+
+\x1b[1mABBREVIATIONS\x1b[0m
     x: x-coordinate (must be positive or zero);
     y: y-coordinate (must be positive or zero);
     w: width        (must be positive or zero);
@@ -620,16 +683,17 @@ impl<'cli_lifetime> Cli<'cli_lifetime> {
     c: color        (must be either `t` or `f`);
     ---
     t: shorthand for `true`;
-    f: shorthand for `false`.";
+    f: shorthand for `false`.
+    
+\x1b[1mSCRIPTING\x1b[0m
+    The IPCLI supports basic scripting. Scripts are plain text files (the `.ipcli` extension is recommended) containing a list of commands to execute, separated by semicolons. See the documentation on the `dump` command and the `-s` option. Sample scripts are available in the source repository.";
         println!("{}", HELP_TEXT);
-        *print_image = false;
     }
-    fn print_command_usage(&self, command_name: &str, usage_message: &str, print_image: &mut bool) {
+    fn print_command_usage(&self, command_name: &str, usage_message: &str) {
         const RED: &str = "\x1b[31m";
         const RESET: &str = "\x1b[0m";
         eprintln!(
             "{RED}{command_name}: invalid options\n{RESET}usage: {command_name} {usage_message}"
         );
-        *print_image = false;
     }
 }
