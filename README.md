@@ -10,7 +10,7 @@ An interactive command line tool to manipulate one-bit bitmap graphics! Built in
 2. `cargo run`!
 
 > [!IMPORTANT]
-> Binaries for macOS are available in GitHub Releases.
+> Binaries for macOS are available in [GitHub Releases](https://github.com/alexis-martel/ipcli/releases).
 
 ## Help
 
