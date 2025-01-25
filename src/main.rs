@@ -385,7 +385,7 @@ struct Cli<'cli_lifetime> {
     image: &'cli_lifetime mut Image,
 }
 
-impl<'cli_lifetime> Cli<'cli_lifetime> {
+impl Cli<'_> {
     pub fn new(prompt_string: String, image: &mut Image) -> Cli {
         Cli {
             prompt_string,

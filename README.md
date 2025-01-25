@@ -67,7 +67,7 @@ The output should be:
 
 ## Demo
 
-TODO: Make a demo video.
+[Demo video on YouTube](https://youtu.be/izrNcMY8iaE).
 
 ## Roadmap
 
